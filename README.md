@@ -1,6 +1,6 @@
 # CC: Create Redstone Link
 
-Based on https://modrinth.com/mod/cc-redstone-link-bridge
+Based on <https://modrinth.com/mod/cc-redstone-link-bridge>. I would have simply contributed the additional feature of adding color support there, but unfortunately that mod is not source available (despite the MIT license on its page).
 
 This mod connects **Create Redstone Link networks** with **CC:Tweaked computers**. It adds a single block, the **CC Redstone Link Bridge**, which can be placed in the world and then used as a ComputerCraft peripheral.
 
@@ -34,7 +34,6 @@ The frequency values are item IDs written as strings. For example, `minecraft:ir
 ## Crafting Recipe
 
 ![The recipe is a 3×3 shaped craft with Redstone Links in all four corners, a Wireless Modem in the center, and Cobblestone in the bottom-middle slot. The three remaining middle-edge slots (top-middle, middle-left, and middle-right) are filled with Create transmitters.](docs/crafting.webp)
-
 
 ## Lua API
 
