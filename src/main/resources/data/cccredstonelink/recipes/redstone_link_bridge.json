@@ -1,0 +1,26 @@
+{
+  "type": "crafting_shaped",
+  "pattern": [
+    "RTR",
+    "TWT",
+    "RCR"
+  ],
+  "key": {
+    "R": {
+      "item": "create:redstone_link"
+    },
+    "T": {
+      "item": "create:transmitter"
+    },
+    "W": {
+      "item": "computercraft:wireless_modem_normal"
+    },
+    "C": {
+      "item": "minecraft:cobblestone"
+    }
+  },
+  "result": {
+    "item": "ccredstonelinkbridge:redstone_link_bridge",
+    "count": 1
+  }
+}

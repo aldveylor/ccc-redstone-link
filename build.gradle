@@ -1,0 +1,191 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'net.neoforged.moddev' version '2.0.141'
+    id 'idea'
+}
+
+tasks.named('wrapper', Wrapper).configure {
+    distributionType = Wrapper.DistributionType.BIN
+}
+
+version = mod_version
+group = mod_group_id
+
+sourceSets.main.resources {
+    srcDir('src/generated/resources')
+    exclude("**/*.bbmodel")
+    exclude("src/generated/**/.cache")
+}
+
+repositories {
+    maven {
+        name = 'Create Maven'
+        url = 'https://maven.createmod.net'
+        content {
+            includeGroup 'com.simibubi.create'
+            includeGroup 'net.createmod.ponder'
+            includeGroup 'net.createmod.catnip'
+            includeGroup 'net.createmod'
+            includeGroup 'dev.engine-room.flywheel'
+        }
+    }
+    maven {
+        name = 'tterrag Maven (Registrate)'
+        url = 'https://maven.ithundxr.dev/snapshots'
+        content {
+            includeGroup 'com.tterrag.registrate'
+        }
+    }
+    maven {
+        name = 'CC:Tweaked Maven'
+        url = 'https://maven.squiddev.cc'
+        content {
+            includeGroup 'cc.tweaked'
+        }
+    }
+}
+
+base {
+    archivesName = mod_id
+}
+
+// 1.21.1 requires Java 21
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+neoForge {
+    version = project.neo_version
+
+    parchment {
+        mappingsVersion = project.parchment_mappings_version
+        minecraftVersion = project.parchment_minecraft_version
+    }
+
+    runs {
+        client {
+            client()
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+        server {
+            server()
+            programArgument '--nogui'
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+        gameTestServer {
+            type = "gameTestServer"
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+        data {
+            data()
+            programArguments.addAll '--mod', project.mod_id, '--all',
+                    '--output', file('src/generated/resources/').getAbsolutePath(),
+                    '--existing', file('src/main/resources/').getAbsolutePath()
+        }
+        configureEach {
+            systemProperty 'forge.logging.markers', 'REGISTRIES'
+            logLevel = org.slf4j.event.Level.DEBUG
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+configurations {
+    runtimeClasspath.extendsFrom localRuntime
+}
+
+dependencies {
+    // ---- Create -----------------------------------------------------------
+    // Slim jar omits all the jarJar'd transitive Create-ecosystem deps so we
+    // declare them explicitly below. transitive=false matches the official
+    // setup at https://wiki.createmod.net/developers/depend-on-create/neoforge-1.21.1
+    compileOnly("com.simibubi.create:create-${minecraft_version}:${create_version}:slim") {
+        transitive = false
+    }
+    // Ponder — shades net.createmod.catnip.data.Couple, which Create's API
+    // surface (RedstoneLinkNetworkHandler.Frequency, getNetworkKey()) references.
+    // The standalone Catnip-NeoForge-* artifact has Couple in a different
+    // package (net.createmod.catnip.utility) starting in 0.8.x, so we depend on
+    // ponder which carries the matching shaded copy.
+    compileOnly "net.createmod.ponder:ponder-neoforge:${ponder_version}+mc${minecraft_version}"
+    // Registrate — referenced by some Create classes
+    compileOnly "com.tterrag.registrate:Registrate:${registrate_version}"
+    // Flywheel API — for any Create class that exposes Flywheel types
+    compileOnly "dev.engine-room.flywheel:flywheel-neoforge-api-${minecraft_version}:${flywheel_version}"
+
+    // ---- CC:Tweaked -------------------------------------------------------
+    // CC:T's 1.21.1 build is published as 'forge' and works on NeoForge 1.21.1
+    // since NeoForge is API-compatible with Forge at this version.
+    compileOnly "cc.tweaked:cc-tweaked-${minecraft_version}-core-api:${cc_tweaked_version}"
+    compileOnly "cc.tweaked:cc-tweaked-${minecraft_version}-common-api:${cc_tweaked_version}"
+    compileOnly "cc.tweaked:cc-tweaked-${minecraft_version}-forge-api:${cc_tweaked_version}"
+
+    // ---- Runtime mods (only present in run tasks, never in the published jar)
+    // We use transitive=false to avoid Gradle trying to resolve Create's
+    // optional integration deps (FTB Chunks/Teams/Library, JourneyMap, Curios,
+    // Architectury, etc.) — those aren't actually required for Create to load.
+    // We explicitly add only what Create's mods.toml hard-requires: flywheel
+    // and ponder (registrate is bundled inside Create's jarJar but harmless
+    // to declare).
+    localRuntime("com.simibubi.create:create-${minecraft_version}:${create_version}") {
+        transitive = false
+    }
+    localRuntime "net.createmod.ponder:ponder-neoforge:${ponder_version}+mc${minecraft_version}"
+    localRuntime "dev.engine-room.flywheel:flywheel-neoforge-${minecraft_version}:${flywheel_version}"
+    localRuntime "com.tterrag.registrate:Registrate:${registrate_version}"
+    // CC:Tweaked full mod jar
+    localRuntime "cc.tweaked:cc-tweaked-${minecraft_version}-forge:${cc_tweaked_version}"
+}
+
+// Property expansion for the mod metadata template
+var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
+    var replaceProperties = [
+            minecraft_version          : minecraft_version,
+            minecraft_version_range    : minecraft_version_range,
+            neo_version                : neo_version,
+            neo_version_range          : neo_version_range,
+            loader_version_range       : loader_version_range,
+            create_version_range       : create_version_range,
+            cc_tweaked_version_range   : cc_tweaked_version_range,
+            mod_id                     : mod_id,
+            mod_name                   : mod_name,
+            mod_license                : mod_license,
+            mod_version                : mod_version,
+            mod_authors                : mod_authors,
+            mod_description            : mod_description,
+    ]
+    inputs.properties replaceProperties
+    expand replaceProperties
+    from "src/main/templates"
+    into "build/generated/sources/modMetadata"
+}
+sourceSets.main.resources.srcDir generateModMetadata
+neoForge.ideSyncTask generateModMetadata
+
+publishing {
+    publications {
+        register('mavenJava', MavenPublication) {
+            from components.java
+        }
+    }
+    repositories {
+        maven {
+            url "file://${project.projectDir}/repo"
+        }
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+idea {
+    module {
+        downloadSources = true
+        downloadJavadoc = true
+    }
+}

@@ -1,0 +1,125 @@
+{
+	"format_version": "1.21.1",
+	"credit": "Made with Blockbench",
+	"parent": "block/block",
+	"render_type": "minecraft:cutout",
+	"texture_size": [32, 32],
+	"textures": {
+		"redstone_antenna": "create:block/redstone_antenna",
+		"particle": "ccredstonelinkbridge:block/redstone_link_bridge",
+		"redstone_bridge": "ccredstonelinkbridge:block/redstone_link_bridge"
+	},
+	"elements": [
+		{
+			"name": "Controller",
+			"from": [2, 0, 2],
+			"to": [14, 6, 14],
+			"faces": {
+				"north": {"uv": [6, 6, 12, 9], "texture": "#redstone_bridge"},
+				"east": {"uv": [0, 0, 6, 3], "texture": "#redstone_bridge"},
+				"south": {"uv": [6, 6, 12, 9], "texture": "#redstone_bridge"},
+				"west": {"uv": [0, 0, 6, 3], "texture": "#redstone_bridge"},
+				"up": {"uv": [6, 0, 12, 6], "texture": "#redstone_bridge"},
+				"down": {"uv": [0, 1, 6, 7], "rotation": 90, "texture": "#redstone_bridge"}
+			}
+		},
+		{
+			"name": "Dish",
+			"from": [-1, 8, 9],
+			"to": [4, 8, 14],
+			"rotation": {"angle": 0, "axis": "y", "origin": [-1, 8, 9]},
+			"faces": {
+				"up": {"uv": [4, 0, 9, 5], "texture": "#redstone_antenna"},
+				"down": {"uv": [4, 0, 9, 5], "texture": "#redstone_antenna"}
+			}
+		},
+		{
+			"name": "Transmitter",
+			"from": [1, 2, 4],
+			"to": [2, 11, 5],
+			"rotation": {"angle": 0, "axis": "y", "origin": [1, 0, 0]},
+			"faces": {
+				"north": {"uv": [1, 1, 2, 10], "texture": "#redstone_antenna"},
+				"east": {"uv": [1, 1, 2, 10], "texture": "#redstone_antenna"},
+				"south": {"uv": [1, 1, 2, 10], "texture": "#redstone_antenna"},
+				"west": {"uv": [1, 1, 2, 10], "texture": "#redstone_antenna"},
+				"up": {"uv": [1, 1, 2, 2], "texture": "#redstone_antenna"},
+				"down": {"uv": [1, 9, 2, 10], "texture": "#redstone_antenna"}
+			}
+		},
+		{
+			"name": "Receiver",
+			"from": [1, 2, 11],
+			"to": [2, 11, 12],
+			"rotation": {"angle": 0, "axis": "y", "origin": [1, 0, 7]},
+			"faces": {
+				"north": {"uv": [1, 1, 2, 10], "texture": "#redstone_antenna"},
+				"east": {"uv": [1, 1, 2, 10], "texture": "#redstone_antenna"},
+				"south": {"uv": [1, 1, 2, 10], "texture": "#redstone_antenna"},
+				"west": {"uv": [1, 1, 2, 10], "texture": "#redstone_antenna"},
+				"up": {"uv": [1, 1, 2, 2], "texture": "#redstone_antenna"},
+				"down": {"uv": [1, 9, 2, 10], "texture": "#redstone_antenna"}
+			}
+		},
+		{
+			"name": "Coil1",
+			"from": [8.5, 5.5, 4],
+			"to": [11.5, 7.5, 12],
+			"rotation": {"angle": 0, "axis": "z", "origin": [8.5, 5.5, 4]},
+			"faces": {
+				"north": {"uv": [12, 4, 13.5, 5], "texture": "#redstone_bridge"},
+				"east": {"uv": [13.5, 0, 14.5, 4], "rotation": 90, "texture": "#redstone_bridge"},
+				"south": {"uv": [12, 4, 13.5, 5], "texture": "#redstone_bridge"},
+				"west": {"uv": [13.5, 0, 14.5, 4], "rotation": 90, "texture": "#redstone_bridge"},
+				"up": {"uv": [12, 0, 13.5, 4], "texture": "#redstone_bridge"}
+			}
+		},
+		{
+			"name": "Coil2",
+			"from": [4.5, 5.5, 4],
+			"to": [7.5, 7.5, 12],
+			"rotation": {"angle": 0, "axis": "y", "origin": [4.5, 5.5, 4]},
+			"faces": {
+				"north": {"uv": [12, 4, 13.5, 5], "texture": "#redstone_bridge"},
+				"east": {"uv": [13.5, 0, 14.5, 4], "rotation": 90, "texture": "#redstone_bridge"},
+				"south": {"uv": [12, 4, 13.5, 5], "texture": "#redstone_bridge"},
+				"west": {"uv": [13.5, 0, 14.5, 4], "rotation": 90, "texture": "#redstone_bridge"},
+				"up": {"uv": [12, 0, 13.5, 4], "texture": "#redstone_bridge"}
+			}
+		}
+	],
+	"display": {
+		"thirdperson_righthand": {
+			"rotation": [75, 45, 0],
+			"translation": [0, 2.5, 0],
+			"scale": [0.375, 0.375, 0.375]
+		},
+		"thirdperson_lefthand": {
+			"rotation": [75, 45, 0],
+			"translation": [0, 2.5, 0],
+			"scale": [0.375, 0.375, 0.375]
+		},
+		"firstperson_righthand": {
+			"rotation": [0, 45, 0],
+			"scale": [0.4, 0.4, 0.4]
+		},
+		"firstperson_lefthand": {
+			"rotation": [0, -135, 0],
+			"scale": [0.4, 0.4, 0.4]
+		},
+		"ground": {
+			"translation": [0, 3, 0],
+			"scale": [0.25, 0.25, 0.25]
+		},
+		"gui": {
+			"rotation": [30, -135, 0],
+			"translation": [0, 1.5, 0],
+			"scale": [0.625, 0.625, 0.625]
+		},
+		"fixed": {
+			"rotation": [-90, 90, 0],
+			"translation": [0, 0, -4],
+			"scale": [0.5, 0.5, 0.5]
+		}
+	}
+}

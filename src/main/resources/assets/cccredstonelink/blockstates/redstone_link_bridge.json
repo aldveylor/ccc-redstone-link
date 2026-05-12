@@ -1,0 +1,5 @@
+{
+  "variants": {
+    "": { "model": "ccredstonelinkbridge:block/redstone_link_bridge" }
+  }
+}
