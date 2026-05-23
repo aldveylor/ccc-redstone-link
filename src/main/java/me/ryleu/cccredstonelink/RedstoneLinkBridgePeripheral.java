@@ -1,15 +1,14 @@
 package me.ryleu.cccredstonelink;
 
-import dan200.computercraft.api.lua.LuaFunction;
-import dan200.computercraft.api.peripheral.IPeripheral;
-import dan200.computercraft.api.lua.LuaException;
+import java.util.Map;
 
-import net.minecraft.world.item.ItemStack;
 import org.jspecify.annotations.NonNull;
 
-import java.util.Optional;
-import java.util.Map;
-import org.jspecify.annotations.Nullable;
+import dan200.computercraft.api.lua.LuaException;
+import dan200.computercraft.api.lua.LuaFunction;
+import dan200.computercraft.api.peripheral.IPeripheral;
+import net.createmod.catnip.data.Couple;
+import net.minecraft.world.item.ItemStack;
 
 /**
  * CC:Tweaked peripheral for the Redstone Link Bridge block.
@@ -64,9 +63,11 @@ import org.jspecify.annotations.Nullable;
 public class RedstoneLinkBridgePeripheral implements IPeripheral {
 
     private final RedstoneLinkBridgeBlockEntity blockEntity;
+    private final Map<Couple<ItemStack>, Integer> hookedValue;
 
     public RedstoneLinkBridgePeripheral(RedstoneLinkBridgeBlockEntity blockEntity) {
         this.blockEntity = blockEntity;
+        this.hookedValue = new java.util.HashMap<>();
     }
 
     @Override
@@ -106,6 +107,16 @@ public class RedstoneLinkBridgePeripheral implements IPeripheral {
         }
     }
 
+    private static Map<String, Object> itemStackToLuaTable(ItemStack stack) {
+        Map<String, Object> table = new java.util.HashMap<>();
+        table.put("id", stack.getItem().toString());
+        Integer color = RedstoneLinkBridgeBlockEntity.getDyeColorRgb(stack);
+        if (color != -1) {
+            table.put("color", color);
+        }
+        return table;
+    }
+
     @LuaFunction(mainThread = true)
     public final int getLinkSignal(
         Object frequency1,
@@ -125,6 +136,32 @@ public class RedstoneLinkBridgePeripheral implements IPeripheral {
         ItemStack first = frequencySpecToItemStack(frequency1);
         ItemStack last  = frequencySpecToItemStack(frequency2);
         blockEntity.sendLinkSignal(first, last, strength);
+    }
+
+    @LuaFunction(mainThread = true)
+    public final void hookLinkListener(
+        Object frequency1,
+        Object frequency2
+    ) throws LuaException {
+        ItemStack first = frequencySpecToItemStack(frequency1);
+        ItemStack last  = frequencySpecToItemStack(frequency2);
+        hookedValue.put(Couple.create(first, last), blockEntity.getLinkSignal(first, last));
+        blockEntity.addLinkListener(first, last, (signal) -> {
+            hookedValue.put(Couple.create(first, last), signal);
+            return null;
+        });
+    }
+
+    @LuaFunction()
+    public final Map<Map<String, Object>, Integer> getHookedSignals() {
+        Map<Map<String, Object>, Integer> result = new java.util.HashMap<>();
+        for (Map.Entry<Couple<ItemStack>, Integer> entry : hookedValue.entrySet()) {
+            Map<String, Object> key = new java.util.HashMap<>();
+            key.put("frequency1", itemStackToLuaTable(entry.getKey().getFirst()));
+            key.put("frequency2", itemStackToLuaTable(entry.getKey().getSecond()));
+            result.put(key, entry.getValue());
+        }
+        return result;
     }
 
     // -------------------------------------------------------------------------

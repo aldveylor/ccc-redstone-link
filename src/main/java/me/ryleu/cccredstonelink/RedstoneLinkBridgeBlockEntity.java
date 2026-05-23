@@ -4,9 +4,11 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 
 import javax.annotation.Nullable;
 
+import org.joml.Vector3d;
 import org.jspecify.annotations.NonNull;
 
 import com.simibubi.create.Create;
@@ -14,10 +16,9 @@ import com.simibubi.create.content.redstone.link.IRedstoneLinkable;
 import com.simibubi.create.content.redstone.link.RedstoneLinkNetworkHandler;
 import com.simibubi.create.infrastructure.config.AllConfigs;
 
-import net.createmod.catnip.data.Couple;
 import dev.ryanhcode.sable.companion.SableCompanion;
 import dev.ryanhcode.sable.companion.SubLevelAccess;
-
+import net.createmod.catnip.data.Couple;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponents;
@@ -32,12 +33,11 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
-import org.joml.Vector3d;
-
 // import java.util.*;
 
 public class RedstoneLinkBridgeBlockEntity extends BlockEntity {
     private final Map<String, RedstoneLinkSendChannel> channels = new LinkedHashMap<>();
+    private final Map<String, RedstoneLinkHookChannel> listeners = new LinkedHashMap<>();
 
     public RedstoneLinkBridgeBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.REDSTONE_LINK_BRIDGE.get(), pos, state);
@@ -66,6 +66,12 @@ public class RedstoneLinkBridgeBlockEntity extends BlockEntity {
             for (RedstoneLinkSendChannel channel : this.channels.values()) {
                 channel.unregister(currentLevel);
             }
+            // Listeners are not saved, unregister then when chunk is unloaded or block is removed
+            // CC: Tweaked will reload the peripheral and listeners when the chunk is loaded again
+            for (RedstoneLinkHookChannel listener : this.listeners.values()) {
+                listener.unregister(currentLevel);
+            }
+            this.listeners.clear();
         }
         super.setRemoved();
     }
@@ -119,6 +125,29 @@ public class RedstoneLinkBridgeBlockEntity extends BlockEntity {
         }
     }
 
+    /**
+     * Register a listener for incoming signals on a redstone link network channel.
+     * The listener is a callback function that gets called with the new signal strength whenever it changes.
+     * 
+     * @param first          ItemStack for the first frequency slot
+     * @param last           ItemStack for the second frequency slot
+     * @param onSignalReceived Callback function that receives the new signal strength as an Integer argument
+     */
+    public void addLinkListener(ItemStack first, ItemStack last, Function<Integer, Void> onSignalReceived) {
+        ItemStack normalizedFirst = normalize(first);
+        ItemStack normalizedLast = normalize(last);
+
+        String key = channelKey(normalizedFirst, normalizedLast);
+        RedstoneLinkHookChannel listener = new RedstoneLinkHookChannel(normalizedFirst, normalizedLast);
+        listener.onSignalReceived = onSignalReceived;
+        this.listeners.put(key, listener);
+
+        Level currentLevel = this.level;
+        if (currentLevel != null && !currentLevel.isClientSide) {
+            listener.register(currentLevel);
+        }
+    }
+
     // -------------------------------------------------------------------------
     // ItemStack / frequency helpers
     // -------------------------------------------------------------------------
@@ -167,7 +196,7 @@ public class RedstoneLinkBridgeBlockEntity extends BlockEntity {
      * {@code -1} if the stack carries no dye color. Mirrors the logic inside
      * Create's {@code Frequency} constructor.
      */
-    private static int getDyeColorRgb(ItemStack stack) {
+    public static int getDyeColorRgb(ItemStack stack) {
         if (stack.has(DataComponents.DYED_COLOR))
             return Objects.requireNonNull(stack.get(DataComponents.DYED_COLOR)).rgb();
         return -1;
@@ -347,10 +376,11 @@ public class RedstoneLinkBridgeBlockEntity extends BlockEntity {
         }
 
         private void setTransmitStrength(int strength) {
+            boolean needsUpdate = (this.transmittedStrength != clampStrength(strength));
             this.transmittedStrength = clampStrength(strength);
             RedstoneLinkBridgeBlockEntity.this.setChanged();
             Level currentLevel = RedstoneLinkBridgeBlockEntity.this.level;
-            if (currentLevel != null && !currentLevel.isClientSide) update(currentLevel);
+            if (currentLevel != null && !currentLevel.isClientSide && needsUpdate) update(currentLevel);
         }
 
         // IRedstoneLinkable
@@ -388,14 +418,31 @@ public class RedstoneLinkBridgeBlockEntity extends BlockEntity {
     // For hooking up redstone link listeners from the peripheral without exposing the full IRedstoneLinkable API
     // This class is not needed to be saved, while the Computer don't save the state of listeners
     // -------------------------------------------------------------------------
-    private final class RedstoneLinkHookChannel extends IRedstoneLinkable {
+    private final class RedstoneLinkHookChannel implements IRedstoneLinkable {
         private final ItemStack frequencyFirst;
         private final ItemStack frequencyLast;
         public Function<Integer, Void> onSignalReceived;
+        private boolean registered;
 
         private RedstoneLinkHookChannel(ItemStack first, ItemStack last) {
             this.frequencyFirst = normalize(first);
             this.frequencyLast  = normalize(last);
+        }
+
+        public String key() {
+            return channelKey(frequencyFirst, frequencyLast);
+        }
+
+        public void register(Level level) {
+            if (registered) return;
+            Create.REDSTONE_LINK_NETWORK_HANDLER.addToNetwork(level, this);
+            registered = true;
+        }
+
+        public void unregister(Level level) {
+            if (!registered) return;
+            Create.REDSTONE_LINK_NETWORK_HANDLER.removeFromNetwork(level, this);
+            registered = false;
         }
 
         @Override

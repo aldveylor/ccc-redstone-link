@@ -7,9 +7,13 @@ import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 
+import com.mojang.logging.LogUtils;
+import org.slf4j.Logger;
+
 @Mod(value="cccredstonelink")
 public class CCRedstoneLinkBridgeMod {
     public static final String MOD_ID = "cccredstonelink";
+    public static final Logger LOGGER = LogUtils.getLogger();
 
     public CCRedstoneLinkBridgeMod(IEventBus modBus) {
         ModBlocks.register(modBus);
