@@ -2,11 +2,14 @@ package me.ryleu.cccredstonelink;
 
 import dan200.computercraft.api.lua.LuaFunction;
 import dan200.computercraft.api.peripheral.IPeripheral;
+import dan200.computercraft.api.lua.LuaException;
 
 import net.minecraft.world.item.ItemStack;
 import org.jspecify.annotations.NonNull;
 
 import java.util.Optional;
+import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * CC:Tweaked peripheral for the Redstone Link Bridge block.
@@ -75,52 +78,52 @@ public class RedstoneLinkBridgePeripheral implements IPeripheral {
     // Lua functions
     // -------------------------------------------------------------------------
 
-    /**
-     * Returns the current signal strength on the given network.
-     *
-     * @param frequency1 First frequency slot item ID
-     * @param frequency2 Second frequency slot item ID
-     * @param color1     (optional) 24-bit RGB for the first slot
-     * @param color2     (optional) 24-bit RGB for the second slot
-     * @return Signal strength 0–15
-     */
+    private static ItemStack frequencySpecToItemStack(Object frequency) throws LuaException {
+        if (frequency instanceof String s) {
+            return RedstoneLinkBridgeBlockEntity.fromFrequencyId(s);
+        } else if (frequency instanceof Map<?,?> stack) {
+            String id;
+            Integer color = null;
+            try {
+                if (!stack.containsKey("id")) {
+                    throw new LuaException("Invalid frequency specification: missing required 'id' key");
+                }
+                id = (String) stack.get("id");
+                stack.remove("id"); // avoid confusion with the item ID in the string case
+                if (stack.containsKey("color")) {
+                    color = ((Number) stack.get("color")).intValue();
+                    stack.remove("color");
+                }
+            } catch (ClassCastException e) {
+                throw new LuaException("Invalid frequency specification: expected string or {id=string, color=number} table");
+            }
+            if (!stack.isEmpty()) {
+                throw new LuaException("Invalid frequency specification: unrecognized keys " + stack.keySet());
+            }
+            return RedstoneLinkBridgeBlockEntity.fromFrequencySpec(id, color);
+        } else {
+            throw new LuaException("Invalid frequency specification: expected string or {id=string, color=number} table");
+        }
+    }
+
     @LuaFunction(mainThread = true)
     public final int getLinkSignal(
-            String frequency1,
-            String frequency2,
-            Optional<Integer> color1,
-            Optional<Integer> color2) {
-
-        ItemStack first = RedstoneLinkBridgeBlockEntity.fromFrequencySpec(
-                frequency1, color1.orElse(null));
-        ItemStack last  = RedstoneLinkBridgeBlockEntity.fromFrequencySpec(
-                frequency2, color2.orElse(null));
-
+        Object frequency1,
+        Object frequency2
+    ) throws LuaException {
+        ItemStack first = frequencySpecToItemStack(frequency1);
+        ItemStack last  = frequencySpecToItemStack(frequency2);
         return blockEntity.getLinkSignal(first, last);
     }
 
-    /**
-     * Transmits a signal on the given network.
-     *
-     * @param frequency1 First frequency slot item ID
-     * @param frequency2 Second frequency slot item ID
-     * @param strength   Signal strength 0–15 (clamped automatically)
-     * @param color1     (optional) 24-bit RGB for the first slot
-     * @param color2     (optional) 24-bit RGB for the second slot
-     */
     @LuaFunction(mainThread = true)
     public final void sendLinkSignal(
-            String frequency1,
-            String frequency2,
-            int strength,
-            Optional<Integer> color1,
-            Optional<Integer> color2) {
-
-        ItemStack first = RedstoneLinkBridgeBlockEntity.fromFrequencySpec(
-                frequency1, color1.orElse(null));
-        ItemStack last  = RedstoneLinkBridgeBlockEntity.fromFrequencySpec(
-                frequency2, color2.orElse(null));
-
+        Object frequency1,
+        Object frequency2,
+        int strength
+    ) throws LuaException {
+        ItemStack first = frequencySpecToItemStack(frequency1);
+        ItemStack last  = frequencySpecToItemStack(frequency2);
         blockEntity.sendLinkSignal(first, last, strength);
     }
 

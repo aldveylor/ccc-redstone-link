@@ -31,14 +31,13 @@ import net.minecraft.world.item.component.DyedItemColor;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.LevelAccess;
 
 import org.joml.Vector3d;
 
-import java.util.*;
+// import java.util.*;
 
 public class RedstoneLinkBridgeBlockEntity extends BlockEntity {
-    private final Map<String, RedstoneLinkReceiveChannel> channels = new LinkedHashMap<>();
+    private final Map<String, RedstoneLinkSendChannel> channels = new LinkedHashMap<>();
 
     public RedstoneLinkBridgeBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.REDSTONE_LINK_BRIDGE.get(), pos, state);
@@ -53,7 +52,7 @@ public class RedstoneLinkBridgeBlockEntity extends BlockEntity {
         super.onLoad();
         Level currentLevel = this.level;
         if (currentLevel != null && !currentLevel.isClientSide) {
-            for (RedstoneLinkReceiveChannel channel : this.channels.values()) {
+            for (RedstoneLinkSendChannel channel : this.channels.values()) {
                 channel.register(currentLevel);
                 channel.update(currentLevel);
             }
@@ -64,7 +63,7 @@ public class RedstoneLinkBridgeBlockEntity extends BlockEntity {
     public void setRemoved() {
         Level currentLevel = this.level;
         if (currentLevel != null && !currentLevel.isClientSide) {
-            for (RedstoneLinkReceiveChannel channel : this.channels.values()) {
+            for (RedstoneLinkSendChannel channel : this.channels.values()) {
                 channel.unregister(currentLevel);
             }
         }
@@ -104,11 +103,11 @@ public class RedstoneLinkBridgeBlockEntity extends BlockEntity {
         ItemStack normalizedLast = normalize(last);
 
         String key = channelKey(normalizedFirst, normalizedLast);
-        RedstoneLinkReceiveChannel channel = this.channels.get(key);
+        RedstoneLinkSendChannel channel = this.channels.get(key);
         Level currentLevel = this.level;
 
         if (channel == null) {
-            channel = new RedstoneLinkReceiveChannel(normalizedFirst, normalizedLast, clampStrength(strength));
+            channel = new RedstoneLinkSendChannel(normalizedFirst, normalizedLast, clampStrength(strength));
             this.channels.put(key, channel);
             this.setChanged();
             if (currentLevel != null && !currentLevel.isClientSide) {
@@ -200,7 +199,7 @@ public class RedstoneLinkBridgeBlockEntity extends BlockEntity {
              + "\0" + itemIdString(last) + "#" + getDyeColorRgb(last);
     }
 
-    private static boolean withinRange(BlockPos from, BlockPos to, LevelAccess level) {
+    private static boolean withinRange(BlockPos from, BlockPos to, Level level) {
         final Vector3d frompos = new Vector3d(from.getX(), from.getY(), from.getZ());
         final Vector3d topos = new Vector3d(to.getX(), to.getY(), to.getZ());
 
@@ -222,7 +221,7 @@ public class RedstoneLinkBridgeBlockEntity extends BlockEntity {
                 .get(frequency);
         if (network == null) return 0;
         for (IRedstoneLinkable linkable : network) {
-            if (!withinRange(this.worldPosition, linkable.getLocation()), this.level) continue;
+            if (!withinRange(this.worldPosition, linkable.getLocation(), level)) continue;
             power = Math.max(power, linkable.getTransmittedStrength());
             if (power >= 15) return 15;
         }
@@ -237,7 +236,7 @@ public class RedstoneLinkBridgeBlockEntity extends BlockEntity {
     protected void saveAdditional(@NonNull CompoundTag tag, HolderLookup.@NonNull Provider provider) {
         super.saveAdditional(tag, provider);
         ListTag channelList = new ListTag();
-        for (RedstoneLinkReceiveChannel channel : this.channels.values()) {
+        for (RedstoneLinkSendChannel channel : this.channels.values()) {
             channelList.add(channel.save(provider));
         }
         tag.put("Channels", channelList);
@@ -252,20 +251,20 @@ public class RedstoneLinkBridgeBlockEntity extends BlockEntity {
             ListTag channelList = tag.getList("Channels", Tag.TAG_COMPOUND);
             for (Tag entry : channelList) {
                 if (!(entry instanceof CompoundTag channelTag)) continue;
-                RedstoneLinkReceiveChannel channel = loadChannel(channelTag, provider);
+                RedstoneLinkSendChannel channel = loadChannel(channelTag, provider);
                 if (channel != null) this.channels.put(channel.key(), channel);
             }
         } else {
             // Legacy single-channel format from the original mod (pre-1.0.4)
             ItemStack frequencyFirst = fromFrequencyId(tag.getString("FrequencyFirst"));
             ItemStack frequencyLast  = fromFrequencyId(tag.getString("FrequencyLast"));
-            RedstoneLinkReceiveChannel channel = new RedstoneLinkReceiveChannel(
+            RedstoneLinkSendChannel channel = new RedstoneLinkSendChannel(
                     frequencyFirst, frequencyLast, tag.getInt("Transmit"));
             this.channels.put(channel.key(), channel);
         }
     }
 
-    private RedstoneLinkReceiveChannel loadChannel(CompoundTag tag, HolderLookup.Provider provider) {
+    private RedstoneLinkSendChannel loadChannel(CompoundTag tag, HolderLookup.Provider provider) {
         ItemStack frequencyFirst;
         ItemStack frequencyLast;
 
@@ -291,21 +290,21 @@ public class RedstoneLinkBridgeBlockEntity extends BlockEntity {
             }
         }
 
-        return new RedstoneLinkReceiveChannel(frequencyFirst, frequencyLast, tag.getInt("Transmit"));
+        return new RedstoneLinkSendChannel(frequencyFirst, frequencyLast, tag.getInt("Transmit"));
     }
 
     // -------------------------------------------------------------------------
     // Inner class – one transmitter per distinct (first, last) frequency pair
     // -------------------------------------------------------------------------
 
-    private final class RedstoneLinkReceiveChannel implements IRedstoneLinkable {
+    private final class RedstoneLinkSendChannel implements IRedstoneLinkable {
 
         private final ItemStack frequencyFirst;
         private final ItemStack frequencyLast;
         private int transmittedStrength;
         private boolean registered;
 
-        private RedstoneLinkReceiveChannel(ItemStack first, ItemStack last, int strength) {
+        private RedstoneLinkSendChannel(ItemStack first, ItemStack last, int strength) {
             this.frequencyFirst     = normalize(first);
             this.frequencyLast      = normalize(last);
             this.transmittedStrength = clampStrength(strength);
@@ -371,6 +370,51 @@ public class RedstoneLinkBridgeBlockEntity extends BlockEntity {
                     && !RedstoneLinkBridgeBlockEntity.this.isRemoved();
         }
 
+        @Override
+        public Couple<RedstoneLinkNetworkHandler.Frequency> getNetworkKey() {
+            return Couple.create(
+                    RedstoneLinkNetworkHandler.Frequency.of(frequencyFirst),
+                    RedstoneLinkNetworkHandler.Frequency.of(frequencyLast)
+            );
+        }
+
+        @Override
+        public BlockPos getLocation() {
+            return RedstoneLinkBridgeBlockEntity.this.worldPosition;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // For hooking up redstone link listeners from the peripheral without exposing the full IRedstoneLinkable API
+    // This class is not needed to be saved, while the Computer don't save the state of listeners
+    // -------------------------------------------------------------------------
+    private final class RedstoneLinkHookChannel extends IRedstoneLinkable {
+        private final ItemStack frequencyFirst;
+        private final ItemStack frequencyLast;
+        public Function<Integer, Void> onSignalReceived;
+
+        private RedstoneLinkHookChannel(ItemStack first, ItemStack last) {
+            this.frequencyFirst = normalize(first);
+            this.frequencyLast  = normalize(last);
+        }
+
+        @Override
+        public int getTransmittedStrength() { return 0; }
+
+        @Override
+        public void setReceivedStrength(int power) {
+            if (onSignalReceived != null) onSignalReceived.apply(power);
+        }
+
+        @Override
+        public boolean isListening() { return true; }
+
+        @Override
+        public boolean isAlive() {
+            return RedstoneLinkBridgeBlockEntity.this.level != null
+                    && !RedstoneLinkBridgeBlockEntity.this.isRemoved();
+        }
+        
         @Override
         public Couple<RedstoneLinkNetworkHandler.Frequency> getNetworkKey() {
             return Couple.create(
