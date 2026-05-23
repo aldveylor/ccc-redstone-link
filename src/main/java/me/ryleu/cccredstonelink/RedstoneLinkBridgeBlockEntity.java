@@ -1,8 +1,18 @@
 package me.ryleu.cccredstonelink;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+
+import javax.annotation.Nullable;
+
+import org.jspecify.annotations.NonNull;
+
 import com.simibubi.create.Create;
 import com.simibubi.create.content.redstone.link.IRedstoneLinkable;
 import com.simibubi.create.content.redstone.link.RedstoneLinkNetworkHandler;
+import com.simibubi.create.infrastructure.config.AllConfigs;
 
 import net.createmod.catnip.data.Couple;
 import net.minecraft.core.BlockPos;
@@ -18,13 +28,6 @@ import net.minecraft.world.item.component.DyedItemColor;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import org.jspecify.annotations.NonNull;
-
-import javax.annotation.Nullable;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
 
 public class RedstoneLinkBridgeBlockEntity extends BlockEntity {
 
@@ -190,15 +193,16 @@ public class RedstoneLinkBridgeBlockEntity extends BlockEntity {
              + "\0" + itemIdString(last) + "#" + getDyeColorRgb(last);
     }
 
-    private static int querySignal(Level level,
+    private int querySignal(Level level,
             Couple<RedstoneLinkNetworkHandler.Frequency> frequency) {
         int power = 0;
-        Set<?> network = Create.REDSTONE_LINK_NETWORK_HANDLER
+        Set<IRedstoneLinkable> network = Create.REDSTONE_LINK_NETWORK_HANDLER
                 .networksIn(level)
                 .get(frequency);
         if (network == null) return 0;
-        for (Object obj : network) {
-            IRedstoneLinkable linkable = (IRedstoneLinkable) obj;
+        for (IRedstoneLinkable linkable : network) {
+            if (!linkable.getLocation().closerThan(this.worldPosition, AllConfigs.server().logistics.linkRange.get()))
+                continue;
             power = Math.max(power, linkable.getTransmittedStrength());
             if (power >= 15) return 15;
         }
