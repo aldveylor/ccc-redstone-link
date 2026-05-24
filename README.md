@@ -13,93 +13,164 @@ The bridge acts as a small adapter between two systems:
 - **Create** provides the Redstone Link network.
 - **CC:Tweaked** provides Lua control from computers.
 
+Optionally, this mod is Sable-compatible.
+
 With the bridge block in the world, a connected computer can:
 
 - read the current signal strength of any Redstone Link frequency pair
 - send a signal strength to any Redstone Link frequency pair
-- optionally tag either frequency slot with a 24-bit RGB dye color
+- subscribe to signal changes using ComputerCraft events
+- optionally use dyed item frequencies with 24-bit RGB colors
+
+The peripheral follows the config rule **Link Range** defined by **Cteate**. It acts like redstone link transimitter.
 
 The mod is intentionally minimal. The Lua interface only exposes the operations required for direct network interaction.
 
 ## How It Works
 
-When the peripheral is used from Lua:
+The peripheral exposes three core operations:
 
-- `getLinkSignal(freq1, freq2)` looks up the current strength for that frequency pair.
-- `sendLinkSignal(freq1, freq2, strength)` sets the target frequency pair and transmits the chosen strength.
+- `getLinkSignal(freq1, freq2)` reads the current signal strength.
+- `sendLinkSignal(freq1, freq2, strength)` transmits a signal.
+- `hookLinkSignal(freq1, freq2)` subscribes to changes on a frequency pair.
 
-Both functions accept two optional trailing arguments, `color1` and `color2`, which apply a dye color to the corresponding frequency slot.
-The frequency values are item IDs written as strings. For example, `minecraft:iron_ingot` and `minecraft:oak_sapling` form one valid pair.
+Whenever a hooked signal changes, the bridge queues a ComputerCraft event:
+
+```lua
+"redstone_link_signal_changed", frequency1, frequency2, signal
+```
+
+The frequency values may be either:
+
+- an item ID string such as "minecraft:iron_ingot"
+- or a Lua table describing both item and optional color
+
+Example frequency table:
+```lua
+{id="minecraft:leather_chestplate", color=0xFF3344}
+```
+An empty string ("") is treated as "minecraft:air".
 
 ## Crafting Recipe
+![Crafting Recipe](docs/crafting.webp)
 
-![The recipe is a 3×3 shaped craft with Redstone Links in all four corners, a Wireless Modem in the center, and Cobblestone in the bottom-middle slot. The three remaining middle-edge slots (top-middle, middle-left, and middle-right) are filled with Create transmitters.](docs/crafting.webp)
+The recipe is a 3×3 shaped craft with Redstone Links in all four corners, a Wireless Modem in the center, and Cobblestone in the bottom-middle slot. The three remaining middle-edge slots (top-middle, middle-left, and middle-right) are filled with Create transmitters.
 
 ## Lua API
-
-Peripheral type:
-
+### Peripheral type:
 - `redstone_link_bridge`
 
-Methods:
-
-- `getLinkSignal(freq1, freq2 [, color1 [, color2]])` -> `number`
-- `sendLinkSignal(freq1, freq2, strength [, color1 [, color2]])`
+### Methods:
+- `getLinkSignal(freq1, freq2) -> number`
+- `sendLinkSignal(freq1, freq2, strength)`
+- `hookLinkSignal(freq1, freq2)`
 
 ### Frequency Values
-
-`freq1` and `freq2` must be item IDs as strings.
-
+freq1 and freq2 may be either:
+#### Item ID Strings
 Examples:
-
 - `"minecraft:iron_ingot"`
 - `"minecraft:oak_sapling"`
 - `"minecraft:redstone"`
+#### Frequency Tables
+A frequency may also be represented as a Lua table:
 
-Use an empty string (`""`) if you want to represent an empty frequency value.
+```lua
+{id="minecraft:leather_chestplate", color=0xFF3344}
+```
 
-### Frequency Colors
+Fields:
+- `id` - the item registry ID
+- `color` - optional 24-bit RGB value in the form `0xRRGGBB`
 
-`color1` and `color2` are optional 24-bit RGB integers in the form `0xRRGGBB`. They are only meaningful when the corresponding frequency item supports Minecraft's `DYED_COLOR` data component, which is only leather armor and leather horse armor in vanilla. A colored slot is on a different Redstone Link network from an uncolored slot of the same item, and different colors produce different networks.
+These match the items physically placed into the two frequency slots of a Create Redstone Link.
 
-The Minecraft Wiki Dye page lists the RGB value each of the 16 standard dyes produces when applied to leather armor in Java Edition. Useful values:
+Use an empty string (`""`) to represent an empty frequency slot. Empty strings are internally treated as `"minecraft:air"`.
 
-- `0xB02E26` -- Red Dye
-- `0x3C44AA` -- Blue Dye
-- `0xFED83D` -- Yellow Dye
-- `0x5E7C16` -- Green Dye
-- `0x1D1D21` -- Black Dye
-- `0xF9FFFE` -- White Dye
+### Freqency Colors
 
-Pass `nil` (or simply omit the argument) for a slot that should remain uncolored. To color only the second slot, pass `nil` for the first.
+Colors are only meaningful when the corresponding item supports Minecraft's DYED_COLOR data component. In vanilla Minecraft, this includes:
+- leather armor
+- leather horse armor
 
-## Example
+A colored slot is considered a different Redstone Link frequency from the same item without color, and different colors produce distinct networks.
+
+Useful vanilla dye RGB values:
+- `0xB02E26` — Red Dye
+- `0x3C44AA` — Blue Dye
+- `0xFED83D` — Yellow Dye
+- `0x5E7C16` — Green Dye
+- `0x1D1D21` — Black Dye
+- `0xF9FFFE` — White Dye
+
+### Signal Hooks and Events
+`hookLinkSignal(freq1, freq2)` registers a listener for signal changes on the specified frequency pair.
+
+Whenever the signal strength changes, the bridge queues the following event on attached ComputerCraft computers:
+
+```lua
+"redstone_link_signal_changed", frequency1, frequency2, signal
+```
+
+Event arguments:
+
+- `frequency1` — frequency table with keys id and optional color
+- `frequency2` — frequency table with keys id and optional color
+- `signal` — new signal strength (0–15)
+
+This is generally more efficient than repeatedly polling getLinkSignal in a loop.
+
+### Example
 
 ```lua
 local bridge = peripheral.find("redstone_link_bridge")
 assert(bridge, "No redstone_link_bridge found")
 
 -- Read an existing frequency pair
-local current = bridge.getLinkSignal("minecraft:diamond", "minecraft:redstone")
+local current = bridge.getLinkSignal(
+    "minecraft:diamond",
+    "minecraft:redstone"
+)
+
 print("Current signal:", current)
 
 -- Send a signal to a frequency pair
-bridge.sendLinkSignal("minecraft:diamond", "minecraft:redstone", 7)
-
--- Send on a color-tagged channel. This matches a physical Redstone Link
--- whose leather-armor slots were dyed with one Red Dye and one Blue Dye.
 bridge.sendLinkSignal(
-    "minecraft:leather_chestplate",
-    "minecraft:leather_helmet",
-    15,
-    0xB02E26,   -- Red Dye
-    0x3C44AA)   -- Blue Dye
+    "minecraft:diamond",
+    "minecraft:redstone",
+    7
+)
 
--- Only the second slot is colored
+-- Send on a color-tagged channel
 bridge.sendLinkSignal(
-    "minecraft:leather_chestplate",
-    "minecraft:leather_helmet",
-    15,
-    nil,
-    0x3C44AA)   -- Blue Dye
+    {id="minecraft:leather_chestplate", color=0xB02E26},
+    {id="minecraft:leather_helmet", color=0x3C44AA},
+    15
+)
+
+-- Read from a color-tagged channel
+local coloredSignal = bridge.getLinkSignal(
+    {id="minecraft:leather_chestplate", color=0xB02E26},
+    {id="minecraft:leather_helmet", color=0x3C44AA}
+)
+
+print("Colored signal:", coloredSignal)
+
+-- Listen for signal changes
+bridge.hookLinkSignal(
+    {id="minecraft:leather_chestplate", color=0xB02E26},
+    {id="minecraft:leather_helmet", color=0x3C44AA}
+)
+
+while true do
+    local event, freq1, freq2, signal =
+        os.pullEvent("redstone_link_signal_changed")
+
+    print(string.format(
+        "Signal on %s/%s changed to %d",
+        freq1.id,
+        freq2.id,
+        signal
+    ))
+end
 ```
