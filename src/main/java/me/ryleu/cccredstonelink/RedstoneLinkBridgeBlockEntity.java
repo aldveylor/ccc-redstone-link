@@ -133,11 +133,17 @@ public class RedstoneLinkBridgeBlockEntity extends BlockEntity {
      * @param last           ItemStack for the second frequency slot
      * @param onSignalReceived Callback function that receives the new signal strength as an Integer argument
      */
-    public void addLinkListener(ItemStack first, ItemStack last, Function<Integer, Void> onSignalReceived) {
+    public void setLinkListener(ItemStack first, ItemStack last, Function<Integer, Void> onSignalReceived) {
         ItemStack normalizedFirst = normalize(first);
         ItemStack normalizedLast = normalize(last);
 
         String key = channelKey(normalizedFirst, normalizedLast);
+        if (listeners.containsKey(key)) {
+            // Update the callback of existing listener if already exists
+            RedstoneLinkHookChannel existingListener = listeners.get(key);
+            existingListener.onSignalReceived = onSignalReceived;
+            return;
+        }
         RedstoneLinkHookChannel listener = new RedstoneLinkHookChannel(normalizedFirst, normalizedLast);
         listener.onSignalReceived = onSignalReceived;
         this.listeners.put(key, listener);
@@ -423,6 +429,7 @@ public class RedstoneLinkBridgeBlockEntity extends BlockEntity {
         private final ItemStack frequencyLast;
         public Function<Integer, Void> onSignalReceived;
         private boolean registered;
+        private @Nullable Integer lastReceivedSignal = null;
 
         private RedstoneLinkHookChannel(ItemStack first, ItemStack last) {
             this.frequencyFirst = normalize(first);
@@ -450,6 +457,8 @@ public class RedstoneLinkBridgeBlockEntity extends BlockEntity {
 
         @Override
         public void setReceivedStrength(int power) {
+            if (Objects.equals(lastReceivedSignal, power)) return; // avoid duplicate events when signal strength doesn't change
+            lastReceivedSignal = power;
             if (onSignalReceived != null) onSignalReceived.apply(power);
         }
 

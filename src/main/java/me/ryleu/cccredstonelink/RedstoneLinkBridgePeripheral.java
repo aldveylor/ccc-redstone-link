@@ -1,13 +1,14 @@
 package me.ryleu.cccredstonelink;
 
 import java.util.Map;
+import java.util.Set;
 
 import org.jspecify.annotations.NonNull;
 
 import dan200.computercraft.api.lua.LuaException;
 import dan200.computercraft.api.lua.LuaFunction;
+import dan200.computercraft.api.peripheral.IComputerAccess;
 import dan200.computercraft.api.peripheral.IPeripheral;
-import net.createmod.catnip.data.Couple;
 import net.minecraft.world.item.ItemStack;
 
 /**
@@ -63,16 +64,26 @@ import net.minecraft.world.item.ItemStack;
 public class RedstoneLinkBridgePeripheral implements IPeripheral {
 
     private final RedstoneLinkBridgeBlockEntity blockEntity;
-    private final Map<Couple<ItemStack>, Integer> hookedValue;
+    private final Set<IComputerAccess> computers;
 
     public RedstoneLinkBridgePeripheral(RedstoneLinkBridgeBlockEntity blockEntity) {
         this.blockEntity = blockEntity;
-        this.hookedValue = new java.util.HashMap<>();
+        this.computers = new java.util.concurrent.CopyOnWriteArraySet<>();
     }
 
     @Override
     public @NonNull String getType() {
         return "redstone_link_bridge";
+    }
+
+    @Override
+    public void attach(IComputerAccess computer) {
+        this.computers.add(computer);
+    }
+
+    @Override
+    public void detach(IComputerAccess computer) {
+        this.computers.remove(computer);
     }
 
     // -------------------------------------------------------------------------
@@ -139,29 +150,18 @@ public class RedstoneLinkBridgePeripheral implements IPeripheral {
     }
 
     @LuaFunction(mainThread = true)
-    public final void hookLinkListener(
+    public final void hookLinkSignal(
         Object frequency1,
         Object frequency2
     ) throws LuaException {
         ItemStack first = frequencySpecToItemStack(frequency1);
         ItemStack last  = frequencySpecToItemStack(frequency2);
-        hookedValue.put(Couple.create(first, last), blockEntity.getLinkSignal(first, last));
-        blockEntity.addLinkListener(first, last, (signal) -> {
-            hookedValue.put(Couple.create(first, last), signal);
+        blockEntity.setLinkListener(first, last, (signal) -> {
+            for (IComputerAccess computer : computers) {
+                computer.queueEvent("redstone_link_signal_changed", itemStackToLuaTable(first), itemStackToLuaTable(last), signal);
+            }
             return null;
         });
-    }
-
-    @LuaFunction()
-    public final Map<Map<String, Object>, Integer> getHookedSignals() {
-        Map<Map<String, Object>, Integer> result = new java.util.HashMap<>();
-        for (Map.Entry<Couple<ItemStack>, Integer> entry : hookedValue.entrySet()) {
-            Map<String, Object> key = new java.util.HashMap<>();
-            key.put("frequency1", itemStackToLuaTable(entry.getKey().getFirst()));
-            key.put("frequency2", itemStackToLuaTable(entry.getKey().getSecond()));
-            result.put(key, entry.getValue());
-        }
-        return result;
     }
 
     // -------------------------------------------------------------------------
