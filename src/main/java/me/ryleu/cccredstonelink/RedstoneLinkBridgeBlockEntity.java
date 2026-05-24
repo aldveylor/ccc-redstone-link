@@ -54,7 +54,7 @@ public class RedstoneLinkBridgeBlockEntity extends BlockEntity {
         if (currentLevel != null && !currentLevel.isClientSide) {
             for (RedstoneLinkSendChannel channel : this.channels.values()) {
                 channel.register(currentLevel);
-                channel.update(currentLevel);
+                // channel.update(currentLevel); registering operation will trigger a network update, no need to call update() again here
             }
         }
     }
@@ -382,11 +382,11 @@ public class RedstoneLinkBridgeBlockEntity extends BlockEntity {
         }
 
         private void setTransmitStrength(int strength) {
-            boolean needsUpdate = (this.transmittedStrength != clampStrength(strength));
+            // boolean needsUpdate = (this.transmittedStrength != clampStrength(strength));
             this.transmittedStrength = clampStrength(strength);
             RedstoneLinkBridgeBlockEntity.this.setChanged();
             Level currentLevel = RedstoneLinkBridgeBlockEntity.this.level;
-            if (currentLevel != null && !currentLevel.isClientSide && needsUpdate) update(currentLevel);
+            if (currentLevel != null && !currentLevel.isClientSide) update(currentLevel);
         }
 
         // IRedstoneLinkable

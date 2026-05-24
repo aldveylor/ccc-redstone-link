@@ -179,6 +179,44 @@ public class RedstoneLinkBridgePeripheral implements IPeripheral {
         });
     }
 
+    @LuaFunction(mainThread = true)
+    public final Map<Object, Integer> getLinkSignalBatch(Map<?, ?> frequencies) throws LuaException {
+        // Object is a lua table {freqency1, frequency2}, as map or list
+        Map<Object, Integer> output = new java.util.HashMap<>();
+        int i = 0;
+        for (Map.Entry<?, ?> entry : frequencies.entrySet()) {
+            Object freq = entry.getValue();
+            // Debug output
+            if (!(freq instanceof Map<?,?> m) || !m.containsKey(1.0) || !m.containsKey(2.0)) {
+                throw new LuaException("Invalid frequency pair specification: expected { [1]=frequency1, [2]=frequency2 }");
+            }
+            output.put(entry.getKey(), getLinkSignal(m.get(1.0), m.get(2.0)));
+        }
+        return output;
+    }
+
+    @LuaFunction(mainThread = true)
+    public final void sendLinkSignalBatch(Map<?, ?> entries) throws LuaException {
+        for (Map.Entry<?, ?> entry : entries.entrySet()) {
+            Object entryObj = entry.getValue();
+            if (!(entryObj instanceof Map<?,?> m) || !m.containsKey(1.0) || !m.containsKey(2.0) || !m.containsKey("strength")) {
+                throw new LuaException("Invalid batch entry specification: expected { [1]=frequency1, [2]=frequency2, strength=number }");
+            }
+            sendLinkSignal(m.get(1.0), m.get(2.0), ((Number) m.get("strength")).intValue());
+        }
+    }
+
+    @LuaFunction(mainThread = true)
+    public final void hookLinkSignalBatch(Map<?, ?> entries) throws LuaException {
+        for (Map.Entry<?, ?> entry : entries.entrySet()) {
+            Object entryObj = entry.getValue();
+            if (!(entryObj instanceof Map<?,?> m) || !m.containsKey(1.0) || !m.containsKey(2.0)) {
+                throw new LuaException("Invalid batch entry specification: expected { [1]=frequency1, [2]=frequency2 }");
+            }
+            hookLinkSignal(m.get(1.0), m.get(2.0));
+        }
+    }
+
     // -------------------------------------------------------------------------
     // IPeripheral
     // -------------------------------------------------------------------------
