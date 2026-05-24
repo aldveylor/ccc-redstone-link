@@ -36,6 +36,7 @@ import net.minecraft.world.item.ItemStack;
  *  <li>{@code frequency2} (table) – the second frequency item as a Lua table with keys "id" and optional "color"</li>
  *  <li>{@code signal} (number) – the new signal strength (0–15)</li>
  * </ul>
+ * <b>Note:</b> if frequency is an empty string, it will be parsed as "minecraft:air".
  *
  * <h2>Parameters</h2>
  * <ul>
