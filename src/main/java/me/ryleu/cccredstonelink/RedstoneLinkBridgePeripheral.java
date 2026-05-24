@@ -16,27 +16,33 @@ import net.minecraft.world.item.ItemStack;
  *
  * <h2>Lua API</h2>
  *
- * <h3>getLinkSignal(freq1, freq2 [, color1 [, color2]])</h3>
+ * <h3>getLinkSignal(freq1, freq2)</h3>
  * <p>Returns the current signal strength (0–15) on the Create redstone-link
  * network identified by the two frequency items and their optional dye colors.
+ * If you want to query the signal strength continuously, consider using {@code hookLinkSignal} 
+ * instead to avoid busy-waiting in a loop.
  *
- * <h3>sendLinkSignal(freq1, freq2, strength [, color1 [, color2]])</h3>
+ * <h3>sendLinkSignal(freq1, freq2, strength)</h3>
  * <p>Transmits a signal on the specified network. {@code strength} is clamped
  * to the range 0–15.
+ * 
+ * <h3>hookLinkSignal(freq1, freq2)</h3>
+ * <p>Registers a listener for changes in the signal strength on the specified
+ * network. Whenever the signal strength changes, an event named
+ * "redstone_link_signal_changed" will be queued on the attached ComputerCraft
+ * computer(s) with the following arguments:
+ * <ul>
+ *  <li>{@code frequency1} (table) – the first frequency item as a Lua table with keys "id" and optional "color"</li>
+ *  <li>{@code frequency2} (table) – the second frequency item as a Lua table with keys "id" and optional "color"</li>
+ *  <li>{@code signal} (number) – the new signal strength (0–15)</li>
+ * </ul>
  *
  * <h2>Parameters</h2>
  * <ul>
- *   <li><b>freq1 / freq2</b> – Item registry IDs, e.g.
- *       {@code "minecraft:leather_chestplate"}. These match the items you
- *       would physically place in the two frequency slots of a Create
+ *   <li><b>freq1 / freq2</b> – Item registry IDs or a lua table describing the item, e.g.
+ *       {@code "minecraft:leather_chestplate"}, {@code {id="minecraft:leather_helmet", color=0xFF3344}}.
+ *       These match the items you would physically place in the two frequency slots of a Create
  *       Redstone Link.</li>
- *   <li><b>color1 / color2</b> – Optional 24-bit RGB integers (0x000000–0xFFFFFF).
- *       This is the same value stored in the {@code DYED_COLOR} component of a
- *       dyed leather-armor piece, so any color the cauldron-dyeing system
- *       can produce is valid here. Pass {@code nil} or omit to leave that slot
- *       uncolored. A colored frequency only connects to another link whose
- *       <em>same</em> slot carries the <em>same</em> RGB value, matching
- *       Create's own {@code (item, color)} network-key logic.</li>
  * </ul>
  *
  * <h2>Examples</h2>
@@ -45,20 +51,28 @@ import net.minecraft.world.item.ItemStack;
  *
  * -- Plain item frequencies (backward-compatible)
  * local s = bridge.getLinkSignal("minecraft:diamond", "minecraft:emerald")
- *
+ * 
  * -- Dyed leather chestplate as a frequency, hex-literal RGB
  * bridge.sendLinkSignal(
- *     "minecraft:leather_chestplate",
- *     "minecraft:leather_helmet",
- *     15,
- *     0xFF3344,
- *     0x33AAFF)
+ *     {id="minecraft:leather_chestplate", color=0xFF3344},
+ *     {id="minecraft:leather_helmet", color=0x33AAFF},
+ *     15)
  *
  * -- Only the first slot colored; second slot uncolored
  * local s2 = bridge.getLinkSignal(
- *     "minecraft:leather_chestplate",
- *     "minecraft:leather_helmet",
- *     0xFF3344)
+ *     {id="minecraft:leather_chestplate", color=0xFF3344},
+ *     {id="minecraft:leather_helmet", color=0x33AAFF}
+ * )
+ * 
+ * -- Reacting to signal changes with an event listener
+ * bridge.hookLinkSignal(
+ *     {id="minecraft:leather_chestplate", color=0xFF3344},
+ *     {id="minecraft:leather_helmet", color=0x33AAFF}
+ * )
+ * while true do
+ *     local event, freq1, freq2, signal = os.pullEvent("redstone_link_signal_changed")
+ *     print(string.format("Signal on link %s/%s changed to %d", freq1.id, freq2.id, signal))
+ * end
  * </pre>
  */
 public class RedstoneLinkBridgePeripheral implements IPeripheral {
